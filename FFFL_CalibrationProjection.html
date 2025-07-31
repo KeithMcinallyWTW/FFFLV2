@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFFL Calibration and Projection Model</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* A more modern, pleasant font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom style for the toggle switch */
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider {
+            background-color: #7c3aed; /* purple-600 */
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(16px);
+        }
+    </style>
+</head>
+<body class="bg-purple-50 min-h-screen font-sans text-gray-800 p-4 sm:p-6 lg:p-8">
+
+    <div id="mainContent" class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center relative">
+            <a href="index.html" class="absolute top-0 left-0 inline-flex items-center text-purple-600 hover:text-purple-800 transition-colors font-semibold">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                Home
+            </a>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight pt-10 sm:pt-0">FFFL Calibration and Projection</h1>
+            <p class="mt-2 text-lg text-gray-600">Calibrate your affordable income using a dynamic three-pot strategy.</p>
+            <p class="mt-4 max-w-3xl mx-auto text-sm text-gray-500">
+                This tool models the 'Flex First, Fix Later' retirement strategy. It helps you understand the sustainable income you can draw from your pension pot during your active early retirement years (the 'flex' phase). The model then calculates how your remaining funds can be used to purchase a lifelong, inflation-linked income at a later age (the 'fix' phase). By calibrating the allocation between a <strong>Drawdown Pot</strong>, an <strong>Annuity Pot</strong>, and an <strong>Excess Pot</strong>, you can balance flexibility with long-term security.
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Inputs -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg border border-gray-200 h-fit space-y-6">
+                <!-- Core Assumptions -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-purple-600"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>Core Assumptions</h2>
+                    <div class="flex items-center justify-center bg-gray-100 rounded-lg p-1 mb-4">
+                        <button id="modeCalculateBtn" class="w-1/2 py-2 text-sm font-semibold rounded-md transition-colors bg-purple-600 text-white shadow">Max Income</button>
+                        <button id="modeTargetBtn" class="w-1/2 py-2 text-sm font-semibold rounded-md transition-colors text-gray-600">Target Income</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                        <div id="inputStartingPot"></div>
+                        <div id="inputTargetStartingIncome" style="display: none;"></div>
+                        <div id="inputStartingAge"></div>
+                        <div id="inputAnnuityAge"></div>
+                        <div id="inputCpi"></div>
+                        <div id="inputAnnuityRate"></div>
+                    </div>
+                </div>
+                
+                <!-- Fund Returns -->
+                <div class="border-t border-gray-200 pt-6">
+                     <h2 class="text-xl font-semibold mb-4 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-purple-600"><path d="M12 2a10 10 0 0 0-4.37 18.02c.24.8.87 1.43 1.69 1.83a2.99 2.99 0 0 0 3.36 0c.82-.4 1.45-1.03 1.69-1.83A10 10 0 0 0 12 2Z"></path><path d="M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"></path><path d="M12 14a2.5 2.5 0 0 0-2.5 2.5v.5a2.5 2.5 0 0 0 5 0v-.5A2.5 2.5 0 0 0 12 14Z"></path></svg>Underlying Fund Returns</h2>
+                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                        <div id="inputGrowthFundReturn"></div>
+                        <div id="inputLowRiskFundReturn"></div>
+                     </div>
+                </div>
+
+                <!-- Investment Strategies -->
+                <div class="border-t border-gray-200 pt-6 space-y-4">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-purple-600"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>Pot Investment Strategies (% Growth Fund)</h2>
+                    <div id="strategyDrawdown"></div>
+                    <div id="strategyAnnuity"></div>
+                    <div id="strategyExcess"></div>
+                </div>
+
+                <!-- Stress Test -->
+                <div class="border-t border-gray-200 pt-6 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-semibold flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-purple-600"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>Stress Test Scenario</h2>
+                        <label class="toggle"><input type="checkbox" id="isStressTestEnabled"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div id="stressTestControls" class="p-4 border rounded-lg space-y-4 bg-amber-50" style="display: none;">
+                        <div id="inputShockAge"></div>
+                        <div id="inputShockReturn"></div>
+                        <div id="inputShockLowRiskReturn"></div>
+                        <div id="inputShockAnnuityRate"></div>
+                        <div class="pt-2">
+                            <label class="text-sm font-medium text-gray-600 mb-2 block">Income Adjustment Strategy</label>
+                            <div class="flex items-center justify-center bg-white rounded-lg p-1">
+                                <button id="shockAdjustRecalculateBtn" class="w-1/2 py-1 text-xs font-semibold rounded-md transition-colors bg-purple-500 text-white shadow-sm">Recalculate Income</button>
+                                <button id="shockAdjustSmoothBtn" class="w-1/2 py-1 text-xs font-semibold rounded-md transition-colors text-gray-500">Smooth Increases</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-2">
+                 <div id="errorDisplay" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md" role="alert" style="display: none;"></div>
+                 <div id="resultsContent">
+                    <div class="bg-purple-600 text-white p-6 rounded-2xl shadow-lg mb-8">
+                        <h3 id="incomeTitle" class="text-lg font-semibold text-purple-200">Maximum Starting Income</h3>
+                        <div class="flex items-baseline space-x-3 mt-2">
+                            <p id="initialIncomeDisplay" class="text-4xl font-bold">£0 / year</p>
+                            <p id="initialIncomeRateDisplay" class="text-lg text-purple-200">(0.00%)</p>
+                        </div>
+                        <p class="text-purple-200 mt-1">This income is expected to rise with inflation (CPI) each year.</p>
+                        <div id="stressTestIncomeResult" class="mt-2 font-semibold flex items-center" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-semibold text-gray-800">Results Explained</h3>
+                            <button id="toggleExplanationBtn" class="text-sm font-semibold text-purple-600 hover:text-purple-800">Show</button>
+                        </div>
+                        <div id="explanationContent" class="prose prose-sm mt-4 text-gray-600 max-w-none" style="display: none;">
+                            <!-- Dynamic content will be injected here -->
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white p-4 rounded-2xl shadow-lg border border-gray-200"><h3 class="text-md font-semibold text-gray-700 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-purple-500"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01"></path><path d="M18 12h.01"></path></svg>Initial Drawdown Pot</h3><p id="initialDrawdownPotDisplay" class="text-2xl font-bold text-gray-900 mt-2">£0</p></div>
+                        <div class="bg-white p-4 rounded-2xl shadow-lg border border-gray-200"><h3 class="text-md font-semibold text-gray-700 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-purple-500"><path d="M7 20h10"></path><path d="M12 20V4"></path><path d="M12 4c-1.5 2-3 4-3 6 0 2 1.5 4 3 4s3-2 3-4c0-2-1.5-4-3-6z"></path></svg>Initial Annuity Pot</h3><p id="initialAnnuityPotDisplay" class="text-2xl font-bold text-gray-900 mt-2">£0</p></div>
+                        <div class="bg-white p-4 rounded-2xl shadow-lg border border-gray-200"><h3 class="text-md font-semibold text-gray-700 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-purple-500"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>Initial Excess Pot</h3><p id="initialExcessPotDisplay" class="text-2xl font-bold text-gray-900 mt-2">£0</p></div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8">
+                         <h3 class="text-xl font-semibold mb-4 text-gray-800">Three-Pot Projection</h3>
+                        <div class="h-[300px]"><canvas id="potChart"></canvas></div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8">
+                         <h3 class="text-xl font-semibold mb-4 text-gray-800">Annual Income Projection</h3>
+                        <div class="h-[200px]"><canvas id="incomeChart"></canvas></div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-800">Year-by-Year Breakdown</h3>
+                        <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead id="breakdownThead"></thead><tbody id="breakdownTbody"></tbody></table></div>
+                    </div>
+
+                    <div id="stressTestAnalysisContainer" class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mt-8" style="display: none;"></div>
+                    <div id="annuityPurchaseSummaryContainer" class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mt-8" style="display: none;"></div>
+                    
+                    <div class="mt-8 p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+                        <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-purple-600"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="m9 16 2 2 4-4"></path></svg>Key Model Assumptions</h2>
+                        <ul class="space-y-2 text-sm text-gray-600 list-disc list-inside mb-6">
+                            <li>Income is withdrawn at the <strong>start</strong> of each year.</li>
+                            <li>Investment returns are applied at the <strong>end</strong> of each year, after income has been withdrawn.</li>
+                            <li>Fund returns and inflation (CPI) are constant and do not fluctuate year-on-year, except for a one-off stress event if applied.</li>
+                            <li>The de-risking glide path is linear, with the allocation changing in equal steps each year.</li>
+                            <li>There are no explicit charges for advice, platforms, or fund management. Returns should be entered net of any fees.</li>
+                            <li>The annuity rate at the 'Fix' age is assumed to be known and fixed from the start.</li>
+                        </ul>
+                        <hr class="my-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-3">Important Disclaimer</h2>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p>This tool is for illustrative and educational purposes only and does not constitute financial, investment, or retirement advice.</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li>The projections are based on the assumptions you provide and do not reflect the performance of any specific investment.</li>
+                                <li>Past performance is not a guarantee of future results. Investment returns can be volatile and may result in the loss of principal.</li>
+                                <li>Annuity rates, inflation (CPI), and market conditions can change and may be different from the assumptions used in this model.</li>
+                                <li>This model does not account for taxes, fees, or other charges that may apply to your pension or investments.</li>
+                                <li>You should not rely on these results to make any financial decisions. It is essential to consult with a qualified and regulated financial advisor before making any decisions about your retirement or investments.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="tooltip" class="absolute z-10 w-64 p-3 text-sm text-white bg-gray-800 rounded-lg shadow-lg" style="display: none;"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- STATE MANAGEMENT (Global Variables) ---
+    let state = {
+        mode: 'calculate',
+        startingPot: 1000000,
+        targetStartingIncome: 24500,
+        startingAge: 65,
+        annuityAge: 80,
+        cpi: 3,
+        growthFundReturn: 5,
+        lowRiskFundReturn: 3.5,
+        drawdownAllocationStart: 100,
+        drawdownAllocationEnd: 100,
+        annuityAllocationStart: 100,
+        annuityAllocationEnd: 0,
+        excessAllocation: 100,
+        annuityRate: 9.10,
+        drawdownDeRiskingPeriod: 15,
+        annuityDeRiskingPeriod: 15,
+        isStressTestEnabled: false,
+        shockAge: 70,
+        shockReturn: 5,
+        shockLowRiskReturn: 3.5,
+        shockAnnuityRate: 9.10,
+        shockAdjustmentStrategy: 'recalculate',
+        results: {
+            initialIncome: 0, postShockIncome: null, projections: [], chartProjections: [],
+            initialAnnuityPot: 0, initialDrawdownPot: 0, initialExcessPot: 0,
+            stressTestAnalysis: null, error: null,
+        },
+    };
+
+    // --- DOM ELEMENT REFERENCES ---
+    const dom = {
+        mainContent: document.getElementById('mainContent'),
+        modeCalculateBtn: document.getElementById('modeCalculateBtn'),
+        modeTargetBtn: document.getElementById('modeTargetBtn'),
+        errorDisplay: document.getElementById('errorDisplay'),
+        resultsContent: document.getElementById('resultsContent'),
+        incomeTitle: document.getElementById('incomeTitle'),
+        initialIncomeDisplay: document.getElementById('initialIncomeDisplay'),
+        initialIncomeRateDisplay: document.getElementById('initialIncomeRateDisplay'),
+        stressTestIncomeResult: document.getElementById('stressTestIncomeResult'),
+        initialDrawdownPotDisplay: document.getElementById('initialDrawdownPotDisplay'),
+        initialAnnuityPotDisplay: document.getElementById('initialAnnuityPotDisplay'),
+        initialExcessPotDisplay: document.getElementById('initialExcessPotDisplay'),
+        breakdownThead: document.getElementById('breakdownThead'),
+        breakdownTbody: document.getElementById('breakdownTbody'),
+        isStressTestEnabled: document.getElementById('isStressTestEnabled'),
+        stressTestControls: document.getElementById('stressTestControls'),
+        shockAdjustRecalculateBtn: document.getElementById('shockAdjustRecalculateBtn'),
+        shockAdjustSmoothBtn: document.getElementById('shockAdjustSmoothBtn'),
+        stressTestAnalysisContainer: document.getElementById('stressTestAnalysisContainer'),
+        annuityPurchaseSummaryContainer: document.getElementById('annuityPurchaseSummaryContainer'),
+        tooltip: document.getElementById('tooltip'),
+        toggleExplanationBtn: document.getElementById('toggleExplanationBtn'),
+        explanationContent: document.getElementById('explanationContent'),
+    };
+
+    const tooltips = {
+        annuityRate: "The rate for a CPI-linked annuity. E.g., 8% means £8 of income per year (rising with inflation) for every £100 of the annuity purchase price.",
+        cpi: "The assumed rate of inflation. Your income will increase by this percentage each year."
+    };
+
+    // --- UI COMPONENT CREATORS ---
+    const createInputField = ({ key, label, icon, tooltipKey, isCurrency = false }) => {
+        const container = document.getElementById(`input${key.charAt(0).toUpperCase() + key.slice(1)}`);
+        if (!container) return;
+
+        const unit = isCurrency ? '£' : (label.includes('Age') ? '' : '%');
+        const step = isCurrency ? 100 : (label.includes('Age') ? 1 : 0.1);
+        
+        let tooltipHtml = '';
+        if (tooltipKey) {
+            tooltipHtml = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 text-gray-400 cursor-pointer tooltip-trigger" data-tooltip-key="${tooltipKey}"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+        }
+
+        container.innerHTML = `
+            <div class="relative">
+                <label class="flex items-center text-sm font-medium text-gray-600 mb-1">${icon}<span class="ml-2">${label}</span>${tooltipHtml}</label>
+                <div class="relative">
+                    <input type="text" inputMode="decimal" step="${step}" value="${state[key]}" id="${key}Input" class="w-full pl-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${unit ? 'pr-10' : 'pr-3'}" />
+                    ${unit ? `<span class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 text-sm">${unit}</span>` : ''}
+                </div>
+            </div>`;
+        
+        const inputEl = document.getElementById(`${key}Input`);
+        inputEl.addEventListener('blur', () => {
+            const parsedValue = parseFloat(inputEl.value);
+            if (!isNaN(parsedValue)) {
+                state[key] = parsedValue;
+                updateSliderRanges();
+                calculateProjection();
+            } else {
+                inputEl.value = state[key];
+            }
+        });
+        inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inputEl.blur(); } });
+    };
+
+    const createAllocationSlider = ({ potKey, label, startKey, endKey, deRiskKey }) => {
+        const container = document.getElementById(`strategy${potKey}`);
+        if (!container) return;
+        
+        const deRiskSliderHtml = deRiskKey ? `
+            <div>
+                <label class="text-sm font-medium text-gray-500">De-risking Period (Years)</label>
+                <div class="flex items-center space-x-4">
+                    <input type="range" min="1" max="${state.annuityAge - state.startingAge}" value="${state[deRiskKey]}" id="${deRiskKey}Slider" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" />
+                    <div class="font-semibold text-purple-600 w-12 text-right">${state[deRiskKey]} yrs</div>
+                </div>
+            </div>` : '';
+
+        container.innerHTML = `
+            <div class="p-4 border rounded-lg space-y-3 bg-gray-50">
+                <label class="flex items-center text-md font-semibold text-gray-700">${label}</label>
+                ${startKey ? `<div><label class="text-sm font-medium text-gray-500">Start Allocation</label><div class="flex items-center space-x-4"><input type="range" min="0" max="100" value="${state[startKey]}" id="${startKey}Slider" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" /><div class="font-semibold text-purple-600 w-12 text-right">${state[startKey]}%</div></div></div>` : ''}
+                ${endKey ? `<div><label class="text-sm font-medium text-gray-500">${startKey ? 'End' : ''} Allocation</label><div class="flex items-center space-x-4"><input type="range" min="0" max="100" value="${state[endKey]}" id="${endKey}Slider" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" /><div class="font-semibold text-purple-600 w-12 text-right">${state[endKey]}%</div></div></div>` : ''}
+                ${deRiskSliderHtml}
+            </div>`;
+
+        if (startKey) {
+            const slider = document.getElementById(`${startKey}Slider`);
+            slider.addEventListener('input', (e) => {
+                state[startKey] = parseInt(e.target.value, 10);
+                e.target.nextElementSibling.textContent = `${state[startKey]}%`;
+                calculateProjection();
+            });
+        }
+        if (endKey) {
+            const slider = document.getElementById(`${endKey}Slider`);
+            slider.addEventListener('input', (e) => {
+                state[endKey] = parseInt(e.target.value, 10);
+                e.target.nextElementSibling.textContent = `${state[endKey]}%`;
+                calculateProjection();
+            });
+        }
+        if (deRiskKey) {
+            const slider = document.getElementById(`${deRiskKey}Slider`);
+            slider.addEventListener('input', (e) => {
+                state[deRiskKey] = parseInt(e.target.value, 10);
+                e.target.nextElementSibling.textContent = `${state[deRiskKey]} yrs`;
+                calculateProjection();
+            });
+        }
+    };
+    
+    function updateSliderRanges() {
+        const flexPeriod = Math.max(1, state.annuityAge - state.startingAge);
+        
+        const drawdownSlider = document.getElementById('drawdownDeRiskingPeriodSlider');
+        if (drawdownSlider) {
+            drawdownSlider.max = flexPeriod;
+            if (state.drawdownDeRiskingPeriod > flexPeriod) {
+                state.drawdownDeRiskingPeriod = flexPeriod;
+            }
+            drawdownSlider.value = state.drawdownDeRiskingPeriod;
+            drawdownSlider.nextElementSibling.textContent = `${state.drawdownDeRiskingPeriod} yrs`;
+        }
+
+        const annuitySlider = document.getElementById('annuityDeRiskingPeriodSlider');
+        if (annuitySlider) {
+            annuitySlider.max = flexPeriod;
+            if (state.annuityDeRiskingPeriod > flexPeriod) {
+                state.annuityDeRiskingPeriod = flexPeriod;
+            }
+            annuitySlider.value = state.annuityDeRiskingPeriod;
+            annuitySlider.nextElementSibling.textContent = `${state.annuityDeRiskingPeriod} yrs`;
+        }
+    }
+
+    // --- CHART SETUP ---
+    const potChartCtx = document.getElementById('potChart').getContext('2d');
+    const incomeChartCtx = document.getElementById('incomeChart').getContext('2d');
+    let potChart, incomeChart;
+
+    function initializeCharts() {
+        if (potChart) potChart.destroy();
+        potChart = new Chart(potChartCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, ticks: { color: '#6b7280' }, grid: { display: false } },
+                    y: { stacked: true, ticks: { color: '#6b7280', callback: (v) => `£${(v/1000).toLocaleString()}k` }, grid: { color: 'rgba(0,0,0,0.05)' } }
+                },
+                plugins: { legend: { labels: { color: '#374151' } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.raw)}` } } }
+            }
+        });
+        
+        if (incomeChart) incomeChart.destroy();
+        incomeChart = new Chart(incomeChartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#6b7280' }, grid: { display: false }, title: { display: true, text: 'Age', color: '#6b7280' } },
+                    y: { ticks: { color: '#6b7280', callback: (v) => `£${(v/1000).toLocaleString()}k` }, grid: { color: 'rgba(0,0,0,0.05)' } }
+                },
+                plugins: { legend: { labels: { color: '#374151' } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.raw)}` } } }
+            }
+        });
+    }
+
+    // --- CALCULATION LOGIC ---
+    const formatCurrency = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+    const getBlendedRate = (alloc, p_growth, p_lowRisk) => (alloc / 100) * p_growth + (1 - alloc / 100) * p_lowRisk;
+    
+    const getInterpolatedAllocation = (startAlloc, endAlloc, currentYearIndex, totalFlexYears, deRiskingPeriod) => {
+        const startOfGlidepathYear = totalFlexYears - deRiskingPeriod;
+        if (currentYearIndex < startOfGlidepathYear) {
+            return startAlloc;
+        }
+        if (deRiskingPeriod <= 1) {
+             return endAlloc;
+        }
+        const glidepathYearIndex = currentYearIndex - startOfGlidepathYear;
+        return startAlloc + (endAlloc - startAlloc) * (glidepathYearIndex / (deRiskingPeriod -1));
+    };
+
+    const solveForMaxIncome = (p_startPot, p_startAge, p_endAge, p_drawdownStartAlloc, p_drawdownEndAlloc, p_annuityStartAlloc, p_annuityEndAlloc, p_cpi = state.cpi, p_annuityRate = state.annuityRate) => {
+        if (p_startAge >= p_endAge) return p_startPot * (p_annuityRate / 100);
+        let lowIncome = 0, highIncome = p_startPot;
+        for (let i = 0; i < 100; i++) {
+            const guessIncome = (lowIncome + highIncome) / 2;
+            if (guessIncome <= 0) { highIncome = 0; continue; }
+            const { annuityPotRequired, drawdownPotRequired } = calculateRequiredPots(guessIncome, p_startAge, p_endAge, p_drawdownStartAlloc, p_drawdownEndAlloc, p_annuityStartAlloc, p_annuityEndAlloc, p_cpi, p_annuityRate);
+            if (annuityPotRequired + drawdownPotRequired < p_startPot) lowIncome = guessIncome; else highIncome = guessIncome;
+        }
+        return lowIncome;
+    };
+
+    const calculateRequiredPots = (income, p_startAge, p_endAge, p_drawdownStartAlloc, p_drawdownEndAlloc, p_annuityStartAlloc, p_annuityEndAlloc, p_cpi, p_annuityRate = state.annuityRate) => {
+        const yearsInFlex = p_endAge - p_startAge;
+        if (yearsInFlex <= 0) return { annuityPotRequired: 0, drawdownPotRequired: 0 };
+        let cumulativeAnnuityDiscount = 1;
+        for (let i = 0; i < yearsInFlex; i++) {
+            const absoluteYearIndex = (p_startAge - state.startingAge) + i;
+            const allocation = getInterpolatedAllocation(p_annuityStartAlloc, p_annuityEndAlloc, absoluteYearIndex, state.annuityAge - state.startingAge, state.annuityDeRiskingPeriod);
+            cumulativeAnnuityDiscount *= (1 + getBlendedRate(allocation, state.growthFundReturn, state.lowRiskFundReturn) / 100);
+        }
+        const finalIncomeRequired = income * Math.pow(1 + p_cpi / 100, yearsInFlex);
+        const targetAnnuityPotValue = finalIncomeRequired / (p_annuityRate / 100);
+        const annuityPotRequired = targetAnnuityPotValue / cumulativeAnnuityDiscount;
+        let drawdownPotRequired = 0;
+        for (let j = 0; j < yearsInFlex; j++) {
+            let cumulativeDrawdownDiscount = 1;
+            for (let k = 0; k < j + 1; k++) {
+                const absoluteYearIndex = (p_startAge - state.startingAge) + k;
+                const allocation = getInterpolatedAllocation(p_drawdownStartAlloc, p_drawdownEndAlloc, absoluteYearIndex, state.annuityAge - state.startingAge, state.drawdownDeRiskingPeriod);
+                cumulativeDrawdownDiscount *= (1 + getBlendedRate(allocation, state.growthFundReturn, state.lowRiskFundReturn) / 100);
+            }
+            const incomeForYearJ = income * Math.pow(1 + p_cpi / 100, j);
+            const endOfYearAbsoluteIndex = (p_startAge - state.startingAge) + j;
+            const endOfYearAllocation = getInterpolatedAllocation(p_drawdownStartAlloc, p_drawdownEndAlloc, endOfYearAbsoluteIndex, state.annuityAge - state.startingAge, state.drawdownDeRiskingPeriod);
+            drawdownPotRequired += incomeForYearJ / (cumulativeDrawdownDiscount / (1 + getBlendedRate(endOfYearAllocation, state.growthFundReturn, state.lowRiskFundReturn) / 100));
+        }
+        return { annuityPotRequired, drawdownPotRequired };
+    };
+
+    // --- CORE PROJECTION & UPDATE LOGIC ---
+    function calculateProjection() {
+        // Validation
+        if (state.annuityAge <= state.startingAge) { updateError("Annuity 'Fix' Age must be after the Starting Age."); return; }
+        if (state.isStressTestEnabled && (state.shockAge < state.startingAge || state.shockAge >= state.annuityAge)) { updateError("Shock Age must be within the flex period."); return; }
+        
+        const { startingPot, startingAge, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, targetStartingIncome, mode, shockAge, shockReturn, shockLowRiskReturn, isStressTestEnabled, shockAdjustmentStrategy, annuityRate, shockAnnuityRate, drawdownDeRiskingPeriod, annuityDeRiskingPeriod } = state;
+        
+        const initialIncome = (mode === 'target') ? targetStartingIncome : solveForMaxIncome(startingPot, startingAge, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, annuityRate);
+        if (initialIncome <= 0) { updateError("Cannot calculate a positive income."); return; }
+        
+        const { annuityPotRequired, drawdownPotRequired } = calculateRequiredPots(initialIncome, startingAge, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, annuityRate);
+        if (mode === 'target' && annuityPotRequired + drawdownPotRequired > startingPot) { updateError(`Target income is too high. You need at least ${formatCurrency(annuityPotRequired + drawdownPotRequired)}.`); return; }
+        
+        updateError(null); // Clear previous errors
+
+        const initialAnnuityPot = annuityPotRequired;
+        const initialDrawdownPot = drawdownPotRequired;
+        const initialExcessPot = Math.max(0, startingPot - (annuityPotRequired + drawdownPotRequired));
+
+        let projections = [], currentAnnuityPot = initialAnnuityPot, currentDrawdownPot = initialDrawdownPot, currentExcessPot = initialExcessPot;
+        let currentIncome = initialIncome, postShockIncome = null, stressTestAnalysis = null, effectiveCpi = cpi;
+        let effectiveAnnuityRate = annuityRate;
+        const yearsInFlex = annuityAge - startingAge;
+
+        for (let i = 0; i < yearsInFlex; i++) {
+            const currentAge = startingAge + i;
+            const drawdownAlloc = getInterpolatedAllocation(drawdownAllocationStart, drawdownAllocationEnd, i, yearsInFlex, drawdownDeRiskingPeriod);
+            const annuityAlloc = getInterpolatedAllocation(annuityAllocationStart, annuityAllocationEnd, i, yearsInFlex, annuityDeRiskingPeriod);
+            
+            const totalGrowthFund = (currentDrawdownPot * drawdownAlloc / 100) + (currentAnnuityPot * annuityAlloc / 100) + (currentExcessPot * state.excessAllocation / 100);
+            const totalLowRiskFund = (currentDrawdownPot * (100 - drawdownAlloc) / 100) + (currentAnnuityPot * (100 - annuityAlloc) / 100) + (currentExcessPot * (100 - state.excessAllocation) / 100);
+            
+            projections.push({ age: currentAge, drawdownPot: currentDrawdownPot, annuityPot: currentAnnuityPot, excessPot: currentExcessPot, totalPot: currentDrawdownPot + currentAnnuityPot + currentExcessPot, income: currentIncome, totalGrowthFund, totalLowRiskFund });
+            
+            const isShockYear = isStressTestEnabled && currentAge === shockAge;
+            const blendedDrawdownGrowth = getBlendedRate(drawdownAlloc, isShockYear ? shockReturn : state.growthFundReturn, isShockYear ? shockLowRiskReturn : state.lowRiskFundReturn);
+            const blendedAnnuityGrowth = getBlendedRate(annuityAlloc, isShockYear ? shockReturn : state.growthFundReturn, isShockYear ? shockLowRiskReturn : state.lowRiskFundReturn);
+            const blendedExcessGrowth = getBlendedRate(state.excessAllocation, isShockYear ? shockReturn : state.growthFundReturn, isShockYear ? shockLowRiskReturn : state.lowRiskFundReturn);
+
+            const endOfYearDrawdownPot = (currentDrawdownPot - currentIncome) * (1 + blendedDrawdownGrowth / 100);
+            const endOfYearAnnuityPot = currentAnnuityPot * (1 + blendedAnnuityGrowth / 100);
+            const endOfYearExcessPot = currentExcessPot * (1 + blendedExcessGrowth / 100);
+            
+            if (isShockYear) {
+                effectiveAnnuityRate = shockAnnuityRate;
+                const postShockTotalPot = Math.max(0, endOfYearDrawdownPot) + endOfYearAnnuityPot + endOfYearExcessPot;
+                const incomeThatWasDue = currentIncome * (1 + cpi / 100);
+                let adjustmentType = 'recalculate';
+
+                if (currentAge === annuityAge - 1) {
+                    if (mode === 'target') {
+                        const targetAnnuityIncome = incomeThatWasDue;
+                        const requiredAnnuityPot = targetAnnuityIncome / (effectiveAnnuityRate / 100);
+                        if (postShockTotalPot >= requiredAnnuityPot) {
+                            postShockIncome = targetAnnuityIncome; currentIncome = targetAnnuityIncome;
+                            currentAnnuityPot = requiredAnnuityPot; currentDrawdownPot = 0; currentExcessPot = postShockTotalPot - requiredAnnuityPot;
+                            stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: targetAnnuityIncome, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: cpi, adjustmentType: 'maintained_final_year', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: 0, annuity: currentAnnuityPot, excess: currentExcessPot } };
+                        } else {
+                            const newSustainableIncome = postShockTotalPot * (effectiveAnnuityRate / 100);
+                            postShockIncome = newSustainableIncome; currentIncome = newSustainableIncome;
+                            stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: newSustainableIncome, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: cpi, adjustmentType: 'recalculate_final_year', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: 0, annuity: postShockTotalPot, excess: 0 } };
+                            currentAnnuityPot = postShockTotalPot; currentDrawdownPot = 0; currentExcessPot = 0;
+                        }
+                    } else {
+                        const newSustainableIncome = postShockTotalPot * (effectiveAnnuityRate / 100);
+                        postShockIncome = newSustainableIncome; currentIncome = newSustainableIncome;
+                        stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: newSustainableIncome, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: cpi, adjustmentType: 'recalculate_final_year', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: 0, annuity: postShockTotalPot, excess: 0 } };
+                        currentAnnuityPot = postShockTotalPot; currentDrawdownPot = 0; currentExcessPot = 0;
+                    }
+                } else {
+                    const { annuityPotRequired: requiredAnnuityForTarget, drawdownPotRequired: requiredDrawdownForTarget } = calculateRequiredPots(incomeThatWasDue, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, effectiveAnnuityRate);
+                    const totalRequiredForTarget = requiredAnnuityForTarget + requiredDrawdownForTarget;
+                    
+                    if (mode === 'target' && postShockTotalPot >= totalRequiredForTarget) {
+                        adjustmentType = 'maintained'; currentIncome = incomeThatWasDue; postShockIncome = incomeThatWasDue;
+                        currentAnnuityPot = requiredAnnuityForTarget; currentDrawdownPot = requiredDrawdownForTarget; currentExcessPot = postShockTotalPot - totalRequiredForTarget;
+                        stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: incomeThatWasDue, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: cpi, adjustmentType: 'maintained', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: currentDrawdownPot, annuity: currentAnnuityPot, excess: currentExcessPot } };
+                    } else if (shockAdjustmentStrategy === 'smooth') {
+                        let lowCpi = -50, highCpi = 50;
+                        for(let s=0; s<100; s++) {
+                            const guessCpi = (lowCpi + highCpi) / 2;
+                            const { annuityPotRequired: rAnnuity, drawdownPotRequired: rDrawdown } = calculateRequiredPots(incomeThatWasDue, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, guessCpi, effectiveAnnuityRate);
+                            if (rAnnuity + rDrawdown < postShockTotalPot) lowCpi = guessCpi; else highCpi = guessCpi;
+                        }
+                        const solvedCpi = lowCpi;
+                        const { annuityPotRequired: requiredAnnuityForSmooth, drawdownPotRequired: requiredDrawdownForSmooth } = calculateRequiredPots(incomeThatWasDue, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, solvedCpi, effectiveAnnuityRate);
+
+                        if (requiredAnnuityForSmooth + requiredDrawdownForSmooth <= postShockTotalPot) {
+                            adjustmentType = 'smooth'; effectiveCpi = solvedCpi; currentIncome = incomeThatWasDue; postShockIncome = incomeThatWasDue;
+                            const { annuityPotRequired: newAnnuityPot, drawdownPotRequired: newDrawdownPot } = calculateRequiredPots(currentIncome, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, effectiveCpi, effectiveAnnuityRate);
+                            stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: currentIncome, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: effectiveCpi, adjustmentType: 'smooth', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: newDrawdownPot, annuity: newAnnuityPot, excess: postShockTotalPot - newAnnuityPot - newDrawdownPot } };
+                            currentAnnuityPot = newAnnuityPot; currentDrawdownPot = newDrawdownPot; currentExcessPot = postShockTotalPot - newAnnuityPot - newDrawdownPot;
+                        } else {
+                            adjustmentType = 'recalculate_forced';
+                            const newSustainableIncome = solveForMaxIncome(postShockTotalPot, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, effectiveAnnuityRate);
+                            postShockIncome = newSustainableIncome;
+                            const { annuityPotRequired: newAnnuityPot, drawdownPotRequired: newDrawdownPot } = calculateRequiredPots(newSustainableIncome, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, effectiveAnnuityRate);
+                            stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: newSustainableIncome, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: cpi, adjustmentType: 'recalculate_forced', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: newDrawdownPot, annuity: newAnnuityPot, excess: Math.max(0, postShockTotalPot - (newAnnuityPot + newDrawdownPot)) } };
+                            currentAnnuityPot = newAnnuityPot; currentDrawdownPot = newDrawdownPot; currentExcessPot = Math.max(0, postShockTotalPot - (newAnnuityPot + newDrawdownPot)); currentIncome = newSustainableIncome;
+                        }
+                    } else {
+                        adjustmentType = 'recalculate';
+                        const newSustainableIncome = solveForMaxIncome(postShockTotalPot, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, effectiveAnnuityRate);
+                        postShockIncome = newSustainableIncome;
+                        const { annuityPotRequired: newAnnuityPot, drawdownPotRequired: newDrawdownPot } = calculateRequiredPots(newSustainableIncome, currentAge + 1, annuityAge, drawdownAllocationStart, drawdownAllocationEnd, annuityAllocationStart, annuityAllocationEnd, cpi, effectiveAnnuityRate);
+                        stressTestAnalysis = { shockAge: currentAge, incomeBeforeShock: incomeThatWasDue, incomeAfterShock: newSustainableIncome, incomeInShockYear: projections[projections.length - 1].income, newEffectiveCpi: cpi, adjustmentType: 'recalculate', potsAfterShock: { drawdown: endOfYearDrawdownPot, annuity: endOfYearAnnuityPot, excess: endOfYearExcessPot }, potsAfterRebalance: { drawdown: newDrawdownPot, annuity: newAnnuityPot, excess: Math.max(0, postShockTotalPot - (newAnnuityPot + newDrawdownPot)) } };
+                            currentAnnuityPot = newAnnuityPot; currentDrawdownPot = newDrawdownPot; currentExcessPot = Math.max(0, postShockTotalPot - (newAnnuityPot + newDrawdownPot)); currentIncome = newSustainableIncome;
+                    }
+                }
+            } else {
+                currentDrawdownPot = endOfYearDrawdownPot;
+                currentAnnuityPot = endOfYearAnnuityPot;
+                currentExcessPot = endOfYearExcessPot;
+                currentIncome *= (1 + effectiveCpi / 100);
+            }
+        }
+        
+        const purchasedIncome = currentAnnuityPot * (effectiveAnnuityRate / 100);
+        const finalDrawdownPot = Math.max(0, currentDrawdownPot);
+        const finalGrowthFund = (finalDrawdownPot * drawdownAllocationEnd / 100) + (currentAnnuityPot * annuityAllocationEnd / 100) + (currentExcessPot * state.excessAllocation / 100);
+        const finalLowRiskFund = (finalDrawdownPot * (100 - drawdownAllocationEnd) / 100) + (currentAnnuityPot * (100 - annuityAllocationEnd) / 100) + (currentExcessPot * (100 - state.excessAllocation) / 100);
+        projections.push({ age: annuityAge, drawdownPot: finalDrawdownPot, annuityPot: currentAnnuityPot, excessPot: currentExcessPot, totalPot: finalDrawdownPot + currentAnnuityPot + currentExcessPot, income: purchasedIncome, totalGrowthFund: finalGrowthFund, totalLowRiskFund: finalLowRiskFund });
+
+        let lastAnnuityIncome = purchasedIncome;
+        for (let age = annuityAge + 1; age <= 90; age++) {
+            currentExcessPot *= (1 + getBlendedRate(state.excessAllocation, false, state.growthFundReturn, state.lowRiskFundReturn) / 100);
+            lastAnnuityIncome *= (1 + cpi / 100);
+            const growthFund = currentExcessPot * (state.excessAllocation / 100);
+            const lowRiskFund = currentExcessPot * (1 - state.excessAllocation / 100);
+            projections.push({ age, drawdownPot: 0, annuityPot: 0, excessPot: currentExcessPot, totalPot: currentExcessPot, income: lastAnnuityIncome, totalGrowthFund: growthFund, totalLowRiskFund: lowRiskFund });
+        }
+        
+        const chartProjections = projections.map(p => {
+            let drawdownIncome = null, annuityIncome = null;
+            if (p.age < annuityAge) { drawdownIncome = p.income; } 
+            else { annuityIncome = p.income; if (p.age === annuityAge) { const lastDrawdownRow = projections.find(proj => proj.age === annuityAge - 1); if (lastDrawdownRow) { drawdownIncome = lastDrawdownRow.income * (1 + effectiveCpi / 100); } } }
+            return { ...p, drawdownIncome, annuityIncome };
+        });
+
+        state.results = { initialIncome, postShockIncome, projections, chartProjections, initialAnnuityPot, initialDrawdownPot, initialExcessPot, stressTestAnalysis, error: null };
+        updateUI();
+    }
+
+    function updateError(message) {
+        state.results.error = message;
+        if (message) {
+            dom.errorDisplay.innerHTML = `<p class="font-bold">Calculation Error</p><p>${message}</p>`;
+            dom.errorDisplay.style.display = 'block';
+            dom.resultsContent.style.display = 'none';
+        } else {
+            dom.errorDisplay.style.display = 'none';
+            dom.resultsContent.style.display = 'block';
+        }
+    }
+
+    function updateUI() {
+        const { results, mode, startingPot, annuityAge, isStressTestEnabled, shockAge, cpi } = state;
+        
+        // Update main income display
+        dom.incomeTitle.textContent = mode === 'calculate' ? 'Maximum Starting Income' : 'Target Starting Income';
+        dom.initialIncomeDisplay.textContent = `${formatCurrency(results.initialIncome)} / year`;
+        dom.initialIncomeRateDisplay.textContent = `(${startingPot > 0 ? ((results.initialIncome / startingPot) * 100).toFixed(2) : '0.00'}%)`;
+
+        // Update stress test income result
+        if (isStressTestEnabled && results.postShockIncome !== null && results.stressTestAnalysis) {
+            let text, colorClass;
+            const analysis = results.stressTestAnalysis;
+
+            if (mode === 'target' && (analysis.adjustmentType === 'maintained' || analysis.adjustmentType === 'maintained_final_year')) {
+                text = `Target income maintained after the shock.`;
+                colorClass = 'text-green-300';
+            } else if (analysis.adjustmentType === 'maintained' || analysis.adjustmentType === 'smooth') {
+                text = `Target income maintained, future increases reset to ${analysis.newEffectiveCpi.toFixed(2)}% p.a. after the shock.`;
+                colorClass = analysis.newEffectiveCpi < cpi ? 'text-amber-300' : 'text-green-300';
+            } else {
+                if (analysis.incomeAfterShock >= analysis.incomeBeforeShock) {
+                    text = `Increases from ${formatCurrency(analysis.incomeBeforeShock)} to ${formatCurrency(analysis.incomeAfterShock)} / year after shock at age ${shockAge}`;
+                    colorClass = 'text-green-300';
+                } else {
+                    text = `Reduces from ${formatCurrency(analysis.incomeBeforeShock)} to ${formatCurrency(analysis.incomeAfterShock)} / year after shock at age ${shockAge}`;
+                    colorClass = 'text-amber-300';
+                }
+            }
+            dom.stressTestIncomeResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span class="${colorClass}">${text}</span>`;
+            dom.stressTestIncomeResult.style.display = 'flex';
+        } else {
+            dom.stressTestIncomeResult.style.display = 'none';
+        }
+
+        // Update initial pot displays
+        dom.initialDrawdownPotDisplay.textContent = formatCurrency(results.initialDrawdownPot);
+        dom.initialAnnuityPotDisplay.textContent = formatCurrency(results.initialAnnuityPot);
+        dom.initialExcessPotDisplay.textContent = formatCurrency(results.initialExcessPot);
+
+        // Update charts
+        const potChartData = {
+            labels: results.projections.filter(p => p.age <= annuityAge).map(p => p.age),
+            datasets: [
+                { label: 'Excess Pot', data: results.projections.filter(p => p.age <= annuityAge).map(p => p.excessPot), backgroundColor: 'rgba(232, 121, 249, 0.6)', borderColor: '#e879f9' },
+                { label: 'Annuity Pot', data: results.projections.filter(p => p.age <= annuityAge).map(p => p.annuityPot), backgroundColor: 'rgba(45, 212, 191, 0.6)', borderColor: '#2dd4bf' },
+                { label: 'Drawdown Pot', data: results.projections.filter(p => p.age <= annuityAge).map(p => p.drawdownPot), backgroundColor: 'rgba(139, 92, 246, 0.6)', borderColor: '#8b5cf6' },
+            ]
+        };
+        potChart.data = potChartData;
+        potChart.update();
+
+        const incomeChartData = {
+            labels: results.chartProjections.map(p => p.age),
+            datasets: [
+                { label: 'Drawdown Income', data: results.chartProjections.map(p => p.drawdownIncome), borderColor: '#8b5cf6', borderWidth: 3, fill: false, tension: 0.1, pointRadius: 0, connectNulls: true },
+                { label: 'Annuity Income', data: results.chartProjections.map(p => p.annuityIncome), borderColor: '#2dd4bf', borderWidth: 3, fill: false, tension: 0.1, pointRadius: 0, connectNulls: true }
+            ]
+        };
+        incomeChart.data = incomeChartData;
+        incomeChart.update();
+        
+        // Update breakdown table
+        dom.breakdownThead.innerHTML = `
+            <tr class="border-b-2 border-gray-200">
+                <th class="py-3 px-2 font-semibold text-gray-600">Age</th><th class="py-3 px-2 font-semibold text-gray-600">Income</th><th class="py-3 px-2 font-semibold text-gray-600">Withdrawal Rate</th>
+                <th class="py-3 px-2 font-semibold text-gray-600">Drawdown Pot</th><th class="py-3 px-2 font-semibold text-gray-600">Annuity Pot</th><th class="py-3 px-2 font-semibold text-gray-600">Excess Pot</th>
+                <th class="py-3 px-2 font-semibold text-gray-600">% Growth</th><th class="py-3 px-2 font-semibold text-gray-600">% Low-Risk</th>
+            </tr>`;
+        dom.breakdownTbody.innerHTML = results.projections.map(row => {
+            const withdrawalRate = row.drawdownPot > 0 ? (row.income / row.drawdownPot) * 100 : 0;
+            const isShockRow = isStressTestEnabled && row.age === shockAge;
+            const growthPercent = row.totalPot > 0 ? (row.totalGrowthFund / row.totalPot) * 100 : 0;
+            const lowRiskPercent = row.totalPot > 0 ? (row.totalLowRiskFund / row.totalPot) * 100 : 0;
+            return `<tr class="border-b border-gray-100 hover:bg-gray-50 ${isShockRow ? 'bg-amber-100' : ''}">
+                <td class="py-3 px-2 font-medium">${row.age} ${isShockRow ? '💥' : ''}</td>
+                <td class="py-3 px-2 text-green-600">${row.income > 0 ? `+${formatCurrency(row.income)}` : '-'}</td>
+                <td class="py-3 px-2 font-semibold">${row.age < annuityAge && row.income > 0 ? `${withdrawalRate.toFixed(2)}%` : 'N/A'}</td>
+                <td class="py-3 px-2">${formatCurrency(row.drawdownPot)}</td><td class="py-3 px-2">${formatCurrency(row.annuityPot)}</td><td class="py-3 px-2">${formatCurrency(row.excessPot)}</td>
+                <td class="py-3 px-2 font-semibold">${growthPercent.toFixed(1)}%</td><td class="py-3 px-2 font-semibold">${lowRiskPercent.toFixed(1)}%</td>
+            </tr>`;
+        }).join('');
+
+        // Update other result containers
+        updateAnnuitySummary();
+        updateStressTestAnalysis();
+        updateResultsExplanation();
+    }
+    
+    function updateAnnuitySummary() {
+        if (state.results.projections.length > 1 && !state.results.error) {
+            const { projections, stressTestAnalysis } = state.results;
+            const finalAnnuityPot = projections.find(p => p.age === state.annuityAge)?.annuityPot || 0;
+            const purchasedIncome = projections.find(p => p.age === state.annuityAge)?.income || 0;
+            const lastYearIncome = projections.find(p => p.age === state.annuityAge - 1)?.income || 0;
+            const targetIncome = lastYearIncome * (1 + (stressTestAnalysis?.newEffectiveCpi ?? state.cpi) / 100);
+            const matchPercentage = targetIncome > 0 ? (purchasedIncome / targetIncome) * 100 : 100;
+            
+            dom.annuityPurchaseSummaryContainer.innerHTML = `
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Annuity Purchase Summary (at Age ${state.annuityAge})</h3>
+                <div class="space-y-3 text-gray-700">
+                    <div class="flex justify-between items-center"><span class="font-medium">Final Annuity Pot Value:</span><span class="font-bold text-lg text-gray-900">${formatCurrency(finalAnnuityPot)}</span></div>
+                    <div class="flex justify-between items-center"><span class="font-medium">Annuity Rate:</span><span class="font-bold text-lg text-gray-900">${state.isStressTestEnabled ? state.shockAnnuityRate : state.annuityRate}%</span></div>
+                    <div class="flex justify-between items-center border-t pt-3 mt-3"><span class="font-medium text-purple-700">Resulting Lifetime Income:</span><span class="font-bold text-xl text-purple-700">${formatCurrency(purchasedIncome)} / year</span></div>
+                </div>
+                <div class="border-t pt-4 mt-4">
+                    <h4 class="text-md font-semibold text-gray-600 mb-2 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Validation Check</h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span>Last Drawdown Income (Age ${state.annuityAge - 1}):</span><span>${formatCurrency(lastYearIncome)}</span></div>
+                        <div class="flex justify-between"><span>Target Income (Last Income + ${stressTestAnalysis ? stressTestAnalysis.newEffectiveCpi.toFixed(2) : state.cpi}%):</span><span>${formatCurrency(targetIncome)}</span></div>
+                        <div class="flex justify-between font-bold"><span>Match:</span><span class="${matchPercentage < 99.5 ? 'text-red-600' : 'text-green-600'}">${matchPercentage.toFixed(2)}%</span></div>
+                    </div>
+                </div>`;
+            dom.annuityPurchaseSummaryContainer.style.display = 'block';
+        } else {
+            dom.annuityPurchaseSummaryContainer.style.display = 'none';
+        }
+    }
+
+    function updateStressTestAnalysis() {
+        if (state.results.stressTestAnalysis) {
+            const { stressTestAnalysis } = state.results;
+            const incomeImpactHtml = stressTestAnalysis.adjustmentType === 'smooth' || stressTestAnalysis.adjustmentType === 'maintained' || stressTestAnalysis.adjustmentType === 'maintained_final_year' ? `
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between text-green-700 font-bold"><span>Outcome:</span><span>${stressTestAnalysis.adjustmentType === 'maintained' || stressTestAnalysis.adjustmentType === 'maintained_final_year' ? 'Income Maintained' : 'Income Smoothed'}</span></div>
+                    <div class="flex justify-between"><span>Original Target Increases:</span><span>CPI (${state.cpi.toFixed(2)}%)</span></div>
+                    <div class="flex justify-between"><span>New Sustainable Increases:</span><span>${stressTestAnalysis.newEffectiveCpi.toFixed(2)}%</span></div>
+                </div>` : `
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span>Planned Income (without shock):</span><span>${formatCurrency(stressTestAnalysis.incomeBeforeShock)}</span></div>
+                    <div class="flex justify-between"><span>New Sustainable Income:</span><span>${formatCurrency(stressTestAnalysis.incomeAfterShock)}</span></div>
+                    <div class="flex justify-between font-bold text-red-600"><span>Reduction (vs expected):</span><span>${formatCurrency(stressTestAnalysis.incomeBeforeShock - stressTestAnalysis.incomeAfterShock)} (${((1 - stressTestAnalysis.incomeAfterShock / stressTestAnalysis.incomeBeforeShock) * 100).toFixed(1)}%)</span></div>
+                    <div class="flex justify-between font-bold text-orange-600"><span>Reduction (vs previous year):</span><span>${formatCurrency(stressTestAnalysis.incomeInShockYear - stressTestAnalysis.incomeAfterShock)} (${((1 - stressTestAnalysis.incomeAfterShock / stressTestAnalysis.incomeInShockYear) * 100).toFixed(1)}%)</span></div>
+                </div>`;
+            
+            const rebalanceTableHtml = ['drawdown', 'annuity', 'excess'].map(potKey => {
+                const afterShock = stressTestAnalysis.potsAfterShock[potKey];
+                const afterRebalance = stressTestAnalysis.potsAfterRebalance[potKey];
+                const rebalance = afterRebalance - afterShock;
+                const rebalanceColor = rebalance > 0 ? 'text-green-600' : 'text-red-600';
+                return `<tr><td class="py-1 capitalize">${potKey}</td><td class="py-1 text-right">${formatCurrency(afterShock)}</td><td class="py-1 text-right">${formatCurrency(afterRebalance)}</td><td class="py-1 text-right font-semibold ${rebalanceColor}">${rebalance > 0 ? '+' : ''}${formatCurrency(rebalance)}</td></tr>`;
+            }).join('');
+
+            dom.stressTestAnalysisContainer.innerHTML = `
+                <h3 class="text-xl font-semibold mb-4 text-gray-800 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-amber-500"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>Stress Test Impact Analysis</h3>
+                <div class="space-y-4">
+                    <div><h4 class="text-md font-semibold text-gray-600 mb-2">Income Impact (at Age ${stressTestAnalysis.shockAge + 1})</h4>${incomeImpactHtml}</div>
+                    <div class="border-t pt-4"><h4 class="text-md font-semibold text-gray-600 mb-2">Pot Rebalance (End of Year ${stressTestAnalysis.shockAge})</h4>
+                        <table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="py-2 font-medium">Pot</th><th class="py-2 font-medium text-right">Value After Shock</th><th class="py-2 font-medium text-right">Value After Rebalance</th><th class="py-2 font-medium text-right">Rebalance Amount</th></tr></thead><tbody>${rebalanceTableHtml}</tbody></table>
+                    </div>
+                </div>`;
+            dom.stressTestAnalysisContainer.style.display = 'block';
+        } else {
+            dom.stressTestAnalysisContainer.style.display = 'none';
+        }
+    }
+    
+    function updateResultsExplanation() {
+        if (state.results.projections.length > 1 && !state.results.error) {
+            const { results, startingAge, annuityAge, isStressTestEnabled, mode } = state;
+            const { initialIncome, initialDrawdownPot, initialAnnuityPot, initialExcessPot, stressTestAnalysis } = results;
+            const finalAnnuityPot = results.projections.find(p => p.age === annuityAge)?.annuityPot || 0;
+            const finalAnnuityIncome = results.projections.find(p => p.age === annuityAge)?.income || 0;
+
+            let explanation = '';
+            if (mode === 'target') {
+                explanation = `
+                    <p>Based on your inputs, to achieve your target starting income of <strong>${formatCurrency(initialIncome)}</strong>, your <strong>${formatCurrency(state.startingPot)}</strong> pot is split into three parts:</p>
+                    <ul class="list-disc list-inside my-2">
+                        <li>A <strong>Drawdown Pot</strong> of <strong>${formatCurrency(initialDrawdownPot)}</strong>, which is calibrated to pay your income during the flexible phase.</li>
+                        <li>An <strong>Annuity Pot</strong> of <strong>${formatCurrency(initialAnnuityPot)}</strong>, which is invested and ring-fenced to purchase your guaranteed income later on.</li>
+                        <li>The remaining <strong>${formatCurrency(initialExcessPot)}</strong> is allocated to an <strong>Excess Pot</strong>. This pot is also invested and is available for you to draw from at any time.</li>
+                    </ul>`;
+            } else { // Max Income mode
+                 explanation = `
+                    <p>Based on your inputs, the maximum sustainable starting income from your <strong>${formatCurrency(state.startingPot)}</strong> pot is <strong>${formatCurrency(initialIncome)}</strong> per year. This income is expected to rise annually with inflation.</p>
+                    <p class="mt-2">To achieve this maximum income, your entire pot is allocated between two parts:</p>
+                    <ul class="list-disc list-inside my-2">
+                        <li>A <strong>Drawdown Pot</strong> of <strong>${formatCurrency(initialDrawdownPot)}</strong>, which is used to pay your income during the flexible phase.</li>
+                        <li>An <strong>Annuity Pot</strong> of <strong>${formatCurrency(initialAnnuityPot)}</strong>, which is invested and ring-fenced to purchase your guaranteed income later on.</li>
+                    </ul>
+                    <p>In this mode, the <strong>Excess Pot</strong> is zero, as all funds are used to maximise the sustainable income.</p>`;
+            }
+
+            explanation += `<p>From age ${startingAge} to ${annuityAge}, your income is drawn from the Drawdown Pot. Both the Drawdown and Annuity pots remain invested according to your chosen strategy, de-risking over time.</p>`;
+
+            if (isStressTestEnabled && stressTestAnalysis) {
+                explanation += `<p class="mt-2 font-semibold">Stress Test Impact:</p><p>In your scenario, a market shock occurs at age ${stressTestAnalysis.shockAge}. `;
+                if (stressTestAnalysis.adjustmentType === 'maintained' || stressTestAnalysis.adjustmentType === 'maintained_final_year') {
+                    explanation += `The model was able to maintain your target income by using funds from the excess pot to cover the shortfall.</p>`;
+                } else if (stressTestAnalysis.adjustmentType === 'smooth') {
+                    explanation += `To maintain your income level immediately after the shock, the sustainable rate of future income increases is adjusted to <strong>${stressTestAnalysis.newEffectiveCpi.toFixed(2)}%</strong> per year.</p>`;
+                } else {
+                    explanation += `This event requires your sustainable income to be recalculated. It changes from a planned <strong>${formatCurrency(stressTestAnalysis.incomeBeforeShock)}</strong> to <strong>${formatCurrency(stressTestAnalysis.incomeAfterShock)}</strong> per year from age ${stressTestAnalysis.shockAge + 1} onwards.</p>`;
+                }
+            }
+
+            explanation += `<p class="mt-2">At age ${annuityAge}, the 'fix' phase begins. Your remaining Annuity Pot, valued at <strong>${formatCurrency(finalAnnuityPot)}</strong>, is used to purchase a guaranteed, inflation-linked income of <strong>${formatCurrency(finalAnnuityIncome)}</strong> for the rest of your life.`;
+            
+            if (mode !== 'calculate') {
+                 explanation += ` Any funds remaining in your Excess Pot are also available to you at this point.</p>`;
+            } else {
+                 explanation += `</p>`;
+            }
+
+            dom.explanationContent.innerHTML = explanation;
+        } else {
+            dom.explanationContent.innerHTML = '';
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+    dom.modeCalculateBtn.addEventListener('click', () => {
+        state.mode = 'calculate';
+        dom.modeCalculateBtn.className = 'w-1/2 py-2 text-sm font-semibold rounded-md transition-colors bg-purple-600 text-white shadow';
+        dom.modeTargetBtn.className = 'w-1/2 py-2 text-sm font-semibold rounded-md transition-colors text-gray-600';
+        document.getElementById('inputTargetStartingIncome').style.display = 'none';
+        calculateProjection();
+    });
+
+    dom.modeTargetBtn.addEventListener('click', () => {
+        state.mode = 'target';
+        dom.modeTargetBtn.className = 'w-1/2 py-2 text-sm font-semibold rounded-md transition-colors bg-purple-600 text-white shadow';
+        dom.modeCalculateBtn.className = 'w-1/2 py-2 text-sm font-semibold rounded-md transition-colors text-gray-600';
+        document.getElementById('inputTargetStartingIncome').style.display = 'block';
+        calculateProjection();
+    });
+    
+    dom.isStressTestEnabled.addEventListener('change', (e) => {
+        state.isStressTestEnabled = e.target.checked;
+        dom.stressTestControls.style.display = state.isStressTestEnabled ? 'block' : 'none';
+        calculateProjection();
+    });
+    
+    dom.shockAdjustRecalculateBtn.addEventListener('click', () => {
+        state.shockAdjustmentStrategy = 'recalculate';
+        dom.shockAdjustRecalculateBtn.className = 'w-1/2 py-1 text-xs font-semibold rounded-md transition-colors bg-purple-500 text-white shadow-sm';
+        dom.shockAdjustSmoothBtn.className = 'w-1/2 py-1 text-xs font-semibold rounded-md transition-colors text-gray-500';
+        calculateProjection();
+    });
+    
+    dom.shockAdjustSmoothBtn.addEventListener('click', () => {
+        state.shockAdjustmentStrategy = 'smooth';
+        dom.shockAdjustSmoothBtn.className = 'w-1/2 py-1 text-xs font-semibold rounded-md transition-colors bg-purple-500 text-white shadow-sm';
+        dom.shockAdjustRecalculateBtn.className = 'w-1/2 py-1 text-xs font-semibold rounded-md transition-colors text-gray-500';
+        calculateProjection();
+    });
+
+    dom.toggleExplanationBtn.addEventListener('click', () => {
+        const isHidden = dom.explanationContent.style.display === 'none';
+        dom.explanationContent.style.display = isHidden ? 'block' : 'none';
+        dom.toggleExplanationBtn.textContent = isHidden ? 'Hide' : 'Show';
+    });
+
+    // Tooltip listeners
+    document.body.addEventListener('mouseenter', (e) => {
+        if (e.target.classList.contains('tooltip-trigger')) {
+            const key = e.target.dataset.tooltipKey;
+            const rect = e.target.getBoundingClientRect();
+            dom.tooltip.textContent = tooltips[key];
+            dom.tooltip.style.display = 'block';
+            dom.tooltip.style.left = `${rect.left + rect.width / 2}px`;
+            dom.tooltip.style.top = `${rect.bottom + 5}px`;
+            dom.tooltip.style.transform = 'translateX(-50%)';
+        }
+    }, true);
+    document.body.addEventListener('mouseleave', (e) => {
+        if (e.target.classList.contains('tooltip-trigger')) {
+            dom.tooltip.style.display = 'none';
+        }
+    }, true);
+    
+    // --- INITIALIZATION ---
+    function initializeApp() {
+        dom.mainContent.style.display = 'block';
+        createInputField({ key: 'startingPot', label: 'Starting Pension Pot', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>', isCurrency: true });
+        createInputField({ key: 'targetStartingIncome', label: 'Target Starting Income', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>', isCurrency: true });
+        createInputField({ key: 'startingAge', label: 'Your Starting Age', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
+        createInputField({ key: 'annuityAge', label: "Annuity 'Fix' Age", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
+        createInputField({ key: 'cpi', label: 'Inflation (CPI)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>', tooltipKey: 'cpi' });
+        createInputField({ key: 'annuityRate', label: 'Annuity Rate - CPI linked (%)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>', tooltipKey: 'annuityRate' });
+        createInputField({ key: 'growthFundReturn', label: 'Growth Fund Return', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>' });
+        createInputField({ key: 'lowRiskFundReturn', label: 'Low-Risk Fund Return', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>' });
+        createInputField({ key: 'shockAge', label: 'Shock Age', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' });
+        createInputField({ key: 'shockReturn', label: 'Growth Fund Shock Return', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>' });
+        createInputField({ key: 'shockLowRiskReturn', label: 'Low-Risk Fund Shock Return', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>' });
+        createInputField({ key: 'shockAnnuityRate', label: 'Shock Annuity Rate - CPI linked (%)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>' });
+
+        createAllocationSlider({ potKey: 'Drawdown', label: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>Pre-annuity Drawdown Pot', startKey: 'drawdownAllocationStart', endKey: 'drawdownAllocationEnd', deRiskKey: 'drawdownDeRiskingPeriod' });
+        createAllocationSlider({ potKey: 'Annuity', label: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M6 3v12"></path><path d="M18 3v12"></path><path d="M4 21h16"></path><path d="M4 12h16"></path></svg>Annuity Pot', startKey: 'annuityAllocationStart', endKey: 'annuityAllocationEnd', deRiskKey: 'annuityDeRiskingPeriod' });
+        createAllocationSlider({ potKey: 'Excess', label: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M20 10c0-4.4-3.6-8-8-8s-8 3.6-8 8 3.6 8 8 8h1a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2a2 2 0 0 1 2-2h1Z"></path><path d="m16 8-2-2-2 2"></path><path d="m16 12-2 2-2-2"></path></svg>Excess Pot (Fixed)', endKey: 'excessAllocation' });
+
+        updateSliderRanges();
+        initializeCharts();
+        calculateProjection();
+    }
+
+    initializeApp();
+});
+</script>
+</body>
+</html>
