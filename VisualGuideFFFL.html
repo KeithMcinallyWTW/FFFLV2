@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the FFFL Model Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+        .flow-arrow {
+            font-size: 2rem;
+            color: #9D4EDD;
+        }
+        .flow-box {
+            border-color: #C77DFF;
+            background-color: #faf5ff;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="max-w-6xl mx-auto p-4 sm:p-8">
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-[#5A189A] tracking-tight">A Visual Guide to the FFFL Model Suite</h1>
+            <p class="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">Exploring a modern retirement strategy that balances flexibility with security through powerful financial modelling.</p>
+        </header>
+
+        <main class="space-y-16">
+
+            <section id="fffl-strategy" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-3xl font-bold text-center text-[#7B2CBF] mb-6">1. The "Flex First, Fix Later" Strategy</h2>
+                <p class="text-center max-w-3xl mx-auto text-gray-600 mb-8">The core idea is to match your income strategy to your lifestyle. Enjoy flexibility in your active early retirement and transition to guaranteed security later in life.</p>
+                <div class="flex flex-col md:flex-row items-center justify-center space-y-6 md:space-y-0 md:space-x-6 text-center">
+                    <div class="p-6 rounded-xl border-2 border-dashed flow-box w-full md:w-1/3">
+                        <div class="text-5xl mb-2">🏃</div>
+                        <h3 class="text-xl font-bold text-[#5A189A]">Flex Phase</h3>
+                        <p class="text-sm text-gray-500">Draw a flexible income from your invested pot during your active years.</p>
+                    </div>
+                    <div class="flow-arrow font-bold">&rarr;</div>
+                    <div class="p-6 rounded-xl border-2 border-dashed flow-box w-full md:w-1/3">
+                        <div class="text-5xl mb-2">🛡️</div>
+                        <h3 class="text-xl font-bold text-[#5A189A]">Fix Phase</h3>
+                        <p class="text-sm text-gray-500">At a set age, purchase a lifelong, inflation-linked annuity for guaranteed income.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="three-pots" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-3xl font-bold text-center text-[#7B2CBF] mb-6">2. The Three-Pot System</h2>
+                <p class="text-center max-w-3xl mx-auto text-gray-600 mb-8">To manage the FFFL strategy, your pension is conceptually split into three parts, each with a specific job.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                    <div class="p-6 bg-gray-50 rounded-xl">
+                        <h3 class="text-xl font-bold text-[#5A189A] mb-2">Drawdown Pot</h3>
+                        <div class="w-32 h-32 mx-auto"><canvas id="drawdownDonut"></canvas></div>
+                        <p class="mt-4 text-sm text-gray-600">The engine for your income during the 'Flex' phase. Invested for growth to fund your withdrawals.</p>
+                    </div>
+                    <div class="p-6 bg-gray-50 rounded-xl">
+                        <h3 class="text-xl font-bold text-[#5A189A] mb-2">Annuity Pot</h3>
+                        <div class="w-32 h-32 mx-auto"><canvas id="annuityDonut"></canvas></div>
+                        <p class="mt-4 text-sm text-gray-600">Ring-fenced and invested to grow enough to buy your target annuity at the 'Fix' age.</p>
+                    </div>
+                    <div class="p-6 bg-gray-50 rounded-xl">
+                        <h3 class="text-xl font-bold text-[#5A189A] mb-2">Excess Pot</h3>
+                        <div class="w-32 h-32 mx-auto"><canvas id="excessDonut"></canvas></div>
+                        <p class="mt-4 text-sm text-gray-600">A buffer for emergencies or extra spending. Any funds left after the other two pots are funded.</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="engine" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-3xl font-bold text-center text-[#7B2CBF] mb-6">3. How the Engine Works: Present Value</h2>
+                <p class="text-center max-w-3xl mx-auto text-gray-600 mb-8">The models calculate the amount of money you need **today** (the Present Value) to fund your entire retirement plan based on your assumptions.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    <div class="p-6 rounded-xl border-2 border-dashed flow-box">
+                        <h3 class="text-xl font-bold text-[#5A189A] mb-3 text-center">Finding Your Income</h3>
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="text-3xl">🎯</div>
+                            <div>
+                                <h4 class="font-semibold">Target Income Mode</h4>
+                                <p class="text-sm text-gray-600">Calculates the pot required for your goal. If you have more, it becomes your Excess Pot.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="text-3xl">⚖️</div>
+                            <div>
+                                <h4 class="font-semibold">Max Income Mode</h4>
+                                <p class="text-sm text-gray-600">Uses a binary search algorithm (a rapid "high-low" guessing game) to find the absolute highest sustainable income your pot can support.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6 rounded-xl border-2 border-dashed flow-box">
+                         <h3 class="text-xl font-bold text-[#5A189A] mb-3 text-center">Recalibration Strategies</h3>
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="text-3xl">🔄</div>
+                            <div>
+                                <h4 class="font-semibold">Recalculate Income</h4>
+                                <p class="text-sm text-gray-600">Solves for a new maximum income after market movements. Maintains inflation protection but can be more volatile.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="text-3xl">〰️</div>
+                            <div>
+                                <h4 class="font-semibold">Smooth Increases</h4>
+                                <p class="text-sm text-gray-600">Keeps income stable but adjusts the rate of future increases. Less volatile year-to-year.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="models" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-3xl font-bold text-center text-[#7B2CBF] mb-6">4. The Four Models Explained</h2>
+                <p class="text-center max-w-3xl mx-auto text-gray-600 mb-8">Each model builds on the last, offering a deeper level of analysis into your retirement plan.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-6 bg-gray-50 rounded-xl border-l-4 border-purple-400">
+                        <h3 class="text-xl font-bold text-[#5A189A] flex items-center">⚙️ 1. Calibration & Projection</h3>
+                        <p class="mt-2 text-sm text-gray-600">The starting point. Calculates your sustainable income and projects your funds in a world with **constant, predictable returns**. Includes a stress test for a single bad year.</p>
+                    </div>
+                    <div class="p-6 bg-gray-50 rounded-xl border-l-4 border-purple-400">
+                        <h3 class="text-xl font-bold text-[#5A189A] flex items-center">🎲 2. Random Journey Simulator</h3>
+                        <p class="mt-2 text-sm text-gray-600">Introduces **volatility**. Simulates one complete, random retirement journey to show how your income might realistically fluctuate year-to-year.</p>
+                    </div>
+                    <div class="p-6 bg-gray-50 rounded-xl border-l-4 border-purple-400">
+                        <h3 class="text-xl font-bold text-[#5A189A] flex items-center">🔬 3. Vulnerability Analysis</h3>
+                        <p class="mt-2 text-sm text-gray-600">A powerful diagnostic tool. It stress-tests **every single year** of your plan to identify the age at which your income is most vulnerable to a market shock.</p>
+                    </div>
+                    <div class="p-6 bg-gray-50 rounded-xl border-l-4 border-purple-400">
+                        <h3 class="text-xl font-bold text-[#5A189A] flex items-center">📊 4. Monte Carlo Analysis</h3>
+                        <p class="mt-2 text-sm text-gray-600">The most comprehensive view. Runs **1,000 random simulations** to show the statistical range of possible outcomes, from unlucky to lucky.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="volatility" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-3xl font-bold text-center text-[#7B2CBF] mb-6">5. Visualizing Volatility & Strategy</h2>
+                <p class="text-center max-w-3xl mx-auto text-gray-600 mb-8">The stochastic models (Random Journey & Monte Carlo) show how different strategies handle market volatility. The "Smooth" strategy typically results in a less bumpy income path than the "Recalculate" strategy.</p>
+                <div class="chart-container">
+                    <canvas id="strategyChart"></canvas>
+                </div>
+            </section>
+            
+            <section id="sharing" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-3xl font-bold text-center text-[#7B2CBF] mb-6">6. A Powerful Feature: Sharing Scenarios</h2>
+                <p class="text-center max-w-3xl mx-auto text-gray-600 mb-8">All models include a feature to save and load your inputs, making it easy to share scenarios with others or save your work for later.</p>
+                 <div class="flex flex-col md:flex-row items-center justify-center space-y-6 md:space-y-0 md:space-x-6 text-center">
+                    <div class="p-6 rounded-xl border-2 border-dashed flow-box w-full md:w-1/3">
+                        <div class="text-5xl mb-2">💾</div>
+                        <h3 class="text-xl font-bold text-[#5A189A]">Export</h3>
+                        <p class="text-sm text-gray-500">Save all your current inputs into a `.json` file on your computer.</p>
+                    </div>
+                    <div class="flow-arrow font-bold">&harr;</div>
+                    <div class="p-6 rounded-xl border-2 border-dashed flow-box w-full md:w-1/3">
+                        <div class="text-5xl mb-2">📂</div>
+                        <h3 class="text-xl font-bold text-[#5A189A]">Import</h3>
+                        <p class="text-sm text-gray-500">Load a saved `.json` file to instantly populate a model and run the analysis.</p>
+                    </div>
+                </div>
+                <p class="text-center text-gray-600 mt-8 font-semibold">Because all models share the same core inputs, you can export a scenario from one model and import it into another!</p>
+            </section>
+
+        </main>
+
+        <footer class="text-center mt-16 border-t pt-8">
+            <p class="text-sm text-gray-500">This suite of tools is for illustrative and educational purposes only. It does not constitute financial advice. Always consult with a qualified financial advisor before making decisions about your retirement.</p>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const commonTooltipConfig = {
+                callbacks: {
+                    title: function(tooltipItems) {
+                        const item = tooltipItems[0];
+                        let label = item.chart.data.labels[item.dataIndex];
+                        if (Array.isArray(label)) {
+                            return label.join(' ');
+                        } else {
+                            return label;
+                        }
+                    }
+                }
+            };
+            
+            // Donut Charts
+            const createDonut = (id, label, color) => {
+                const ctx = document.getElementById(id).getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [label, ''],
+                        datasets: [{
+                            data: [75, 25],
+                            backgroundColor: [color, '#e5e7eb'],
+                            borderWidth: 0,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        }
+                    }
+                });
+            };
+            createDonut('drawdownDonut', 'Drawdown Pot', '#0096C7');
+            createDonut('annuityDonut', 'Annuity Pot', '#00B4D8');
+            createDonut('excessDonut', 'Excess Pot', '#48CAE4');
+
+            // Strategy Line Chart
+            const strategyCtx = document.getElementById('strategyChart').getContext('2d');
+            new Chart(strategyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Start', 'Year 5', 'Year 10', 'Year 15', 'Fix Age'],
+                    datasets: [
+                        {
+                            label: 'Recalculate Strategy',
+                            data: [50, 65, 45, 55, 60],
+                            borderColor: '#0077B6',
+                            backgroundColor: 'rgba(0, 119, 182, 0.1)',
+                            fill: false,
+                            tension: 0.4,
+                            borderWidth: 3
+                        },
+                        {
+                            label: 'Smooth Strategy',
+                            data: [50, 52, 48, 51, 53],
+                            borderColor: '#90E0EF',
+                            backgroundColor: 'rgba(144, 224, 239, 0.1)',
+                            fill: false,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Annual Income (£k)' },
+                            ticks: { callback: (value) => `${value}k` }
+                        },
+                        x: {
+                            title: { display: true, text: 'Retirement Year' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: commonTooltipConfig,
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
